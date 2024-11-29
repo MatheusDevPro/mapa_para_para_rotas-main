@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa com Rota de Viagem</title>
+
+    <!-- Incluir a biblioteca Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <!-- Para incluir GeoJSON -->
+    <script src="https://unpkg.com/leaflet-geojson-selector/dist/leaflet.geojson-selector.js"></script>
+
+    <style>
+        /* Definir o tamanho do mapa */
+
+        body{
+            background-color: black;
+        }
+        #map {
+            width: 100%;
+            height: 600px;
+        }
+        /* Estilo dos campos de entrada */
+        .inputs {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        label{
+            font-weight: bold;
+            font-size: medium;
+            color: #ffffff;
+        }
+        select {
+            padding: 8px;
+            font-size: 16px;
+            margin: 10px;
+            border-radius: 8px;
+            width: 450px;
+        }
+
+        h1{
+            text-align: center;
+            display: block;
+            border-radius: 8px;
+            color:white;
+            opacity: 2;
+        }
+
+        .botao {
+          
+          background-color: #ffffff;
+          color: #009fe4;
+          width: 140px;
+          height: 2.9em;
+          border: #009fe4 0.1em solid;
+          border-radius: 50px;
+          text-align: center;
+          font-size: 16px;
+          transition: all 0.6s ease;
+        }
+
+        .botao:hover {
+          background-color: #009fe4;
+          color: #ffffff;
+          cursor: pointer;
+          border-radius: 8px;
+        }
+
+        .botao:active {
+          background-color: #161616;
+          border: #161616 0.1em solid;
+        }
+
+        .botao:active.botao svg {
+          margin: -0.2em 0.6em 1em;
+        }
+
+        .botao svg {
+          width: 1.6em;
+          margin: -0.2em 1.2em 1em;
+          position: absolute;
+          display: flex;
+          transition: all 0.6s ease;
+        }
+
+        .botao:hover svg {
+          transform: translateX(5px);
+        }
+        .texto { margin:0 2.1em; font-weight:bold; }
+
+       
+    </style>
+</head>
+<body>
+    <h1>Calculadora de Rota entre Capitais</h1>
+
+    <!-- Campos para selecionar origem e destino -->
+    <div class="inputs">
+        <label for="origem">Origem:</label>
+        <select id="origem">
+            <!-- As opções serão preenchidas via JavaScript -->
+        </select>
+        <br>
+        <label for="destino">Destino:</label>
+        <select id="destino">
+            <!-- As opções serão preenchidas via JavaScript -->
+        </select>
+        <br>
+        <button onclick="calcularRota()" class="botao">Calcular Rota</button>
+    </div>
+
+  
+
+    <!-- Div onde o mapa será carregado -->
+    <div id="map"></div>
+
+    <script>
+        // Coordenadas das capitais brasileiras (estado -> [latitude, longitude])
+        var capitaisBrasil = {
+            'Acre': [-8.7742, -68.1893],
+            'Alagoas': [-9.6658, -35.7354],
+            'Amapá': [0.0396, -51.0704],
+            'Amazonas': [-3.1190, -60.2170],
+            'Bahia': [-12.9714, -38.5014],
+            'Ceará': [-3.7172, -38.5437],
+            'Espírito Santo': [-20.3155, -40.3128],
+            'Goiás': [-16.6869, -49.2643],
+            'Maranhão': [-2.5396, -44.2828],
+            'Mato Grosso': [-15.6010, -56.0979],
+            'Mato Grosso do Sul': [-20.4697, -54.6201],
+            'Minas Gerais': [-19.8157, -43.9542],
+            'Pará': [-1.4558, -48.4902],
+            'Paraíba': [-7.1152, -34.8610],
+            'Paraná': [-25.4284, -49.2733],
+            'Pernambuco': [-8.0476, -34.8770],
+            'Piauí': [-5.0917, -42.8034],
+            'Rio de Janeiro': [-22.9068, -43.1729],
+            'Rio Grande do Norte': [-5.7945, -35.2110],
+            'Rio Grande do Sul': [-30.0346, -51.2177],
+            'Rondônia': [-8.7608, -63.9039],
+            'Roraima': [2.8193, -60.6731],
+            'Santa Catarina': [-27.5954, -48.5480],
+            'São Paulo': [-23.5505, -46.6333],
+            'Sergipe': [-10.9472, -37.0731],
+            'Tocantins': [-10.1896, -48.3342]
+        };
+
+        // Criar o mapa centrado no Brasil
+        var map = L.map('map').setView([-15, -55], 4);  // Centraliza o Brasil
+
+        // Adicionar o tile layer (mapa base)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Preencher os campos de origem e destino com as capitais
+        var origemSelect = document.getElementById("origem");
+        var destinoSelect = document.getElementById("destino");
+
+        // Preencher as opções de cidades
+        for (var estado in capitaisBrasil) {
+            var optionOrigem = document.createElement("option");
+            optionOrigem.value = estado;
+            optionOrigem.textContent = estado;
+            origemSelect.appendChild(optionOrigem);
+
+            var optionDestino = document.createElement("option");
+            optionDestino.value = estado;
+            optionDestino.textContent = estado;
+            destinoSelect.appendChild(optionDestino);
+        }
+
+        // Função para calcular a rota entre as capitais selecionadas
+        function calcularRota() {
+            var origem = document.getElementById("origem").value;
+            var destino = document.getElementById("destino").value;
+
+            if (origem && destino) {
+                // Limpar o mapa
+                map.eachLayer(function (layer) {
+                    if (layer !== map.tileLayer) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                // Recriar o tile layer
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+
+                // Adicionar marcadores
+                L.marker(capitaisBrasil[origem]).addTo(map)
+                    .bindPopup("Origem: " + origem)
+                    .openPopup();
+
+                L.marker(capitaisBrasil[destino]).addTo(map)
+                    .bindPopup("Destino: " + destino);
+
+                // Solicitar rota via OpenRouteService (ajuste a chave de API se necessário)
+                var url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248868901d91f6c4c89b20a7a8027bba612&start=${capitaisBrasil[origem][1]},${capitaisBrasil[origem][0]}&end=${capitaisBrasil[destino][1]},${capitaisBrasil[destino][0]}`;
+
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        var geojsonRoute = data.features[0].geometry;
+
+                        // Adicionar a rota ao mapa
+                        L.geoJSON(geojsonRoute).addTo(map);
+
+                        // Exibir tempo estimado de viagem
+                        var duration = data.features[0].properties.segments[0].duration / 60;  // Em minutos
+                        alert(`Tempo estimado de viagem entre ${origem} e ${destino}: ${duration.toFixed(2)} minutos`);
+                    })
+                    .catch(error => {
+                        alert("Erro ao calcular a rota: " + error);
+                    });
+            } else {
+                alert("Por favor, selecione a origem e o destino.");
+            }
+        }
+    </script>
+
+    <footer>
+        Todos os direito reservado.
+    </footer>
+</body>
+</html>
